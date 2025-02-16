@@ -45,7 +45,53 @@ class SamsungScraper:
             # print(f"Error occurred: {e}")
             pass
         return None
+    
+    def extract_dimensions(self, data):
+        dimensions = {"width": None, "height": None, "depth": None, "weight": None}
 
+        def extract_number(value):
+            """Extracts the first numeric value from a string."""
+            match = re.findall(r"[\d.]+", value)
+            return match[0] if match else None
+
+        # Check for standard sections related to dimensions and weight
+        key_sections = ["Weight & Dimensions", "Cut-Out Dimensions", "Dimensions (W x H x D)", "Weight"]
+
+        for section in key_sections:
+            if section in data:
+                for key, value in data[section].items():
+                    if isinstance(value, str):
+                        if "width" in key.lower():
+                            dimensions["width"] = extract_number(value)
+                        if "height" in key.lower():
+                            dimensions["height"] = extract_number(value)
+                        if "depth" in key.lower():
+                            dimensions["depth"] = extract_number(value)
+                        if "weight" in key.lower():
+                            dimensions["weight"] = extract_number(value)
+
+        # General scan across all sections
+        for section, attributes in data.items():
+            if isinstance(attributes, dict):
+                for key, value in attributes.items():
+                    if isinstance(value, str):
+                        # Identify width, height, depth, and weight
+                        if "width" in key.lower():
+                            dimensions["width"] = extract_number(value)
+                        if "height" in key.lower():
+                            dimensions["height"] = extract_number(value)
+                        if "depth" in key.lower():
+                            dimensions["depth"] = extract_number(value)
+                        if "weight" in key.lower():
+                            dimensions["weight"] = extract_number(value)
+
+                        # Handle combined dimension formats: "21.3 x 16.9 x 6.9 Inches"
+                        match = re.findall(r"([\d.]+)\s*[xX]\s*([\d.]+)\s*[xX]\s*([\d.]+)", value)
+                        if match:
+                            dimensions["width"], dimensions["height"], dimensions["depth"] = match[0]
+
+        return dimensions
+    
     async def scrape_product_details(self, url: str):
         """Extract product details from the given URL."""
         print(f"[cyan]Scraping data from:[/cyan] {url}")
@@ -64,8 +110,7 @@ class SamsungScraper:
             "image": "",
             "price" : "",
             "description": "",
-            "dimensions": {},
-            "standard features": []
+            "specifications": {}
         }
 
         specifications = {}
@@ -137,7 +182,7 @@ class SamsungScraper:
 
                 
         
-
+            data["specifications"] = specifications
             print(specifications)
         except Exception as e:
             print(f"Error extracting image: {e}")
@@ -177,7 +222,13 @@ class SamsungScraper:
 
         # Extract Measurements and Dimensions
         try:
-            pass
+
+            dimensions = self.extract_dimensions(data["specifications"])
+            print("********************************************************************")
+            print(dimensions)
+            print("------------------------------------------------------")
+
+            # pass
             # Locate each row in the dimensions table
             # dimension_rows = await new_page.locator('//div[@id="collapsemanualOne"]//table//tr').all()
             # for row in dimension_rows:
