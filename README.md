@@ -65,5 +65,5 @@ asyncio.run(main())
 This project is licensed under the MIT License.
 
 ## Author
-Developed by [VEGLO H. Gabin]
+#### Developed by VEGLO H. Gabin
 
