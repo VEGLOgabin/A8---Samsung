@@ -3,7 +3,9 @@ import pandas as pd
 from playwright.async_api import async_playwright, expect
 from rich import print
 import re
+from fractions import Fraction
 from bs4 import BeautifulSoup
+import os
 
 class SamsungScraper:
     """Web scraper for extracting product details from the Champion Manufacturing."""
@@ -45,53 +47,130 @@ class SamsungScraper:
             # print(f"Error occurred: {e}")
             pass
         return None
-    
+
     def extract_dimensions(self, data):
-        dimensions = {"width": None, "height": None, "depth": None, "weight": None}
+        dimensions = {"width": None, "height": None, "depth": None, "weight": None, "shipping_weight": None}
 
         def extract_number(value):
             """Extracts the first numeric value from a string."""
             match = re.findall(r"[\d.]+", value)
             return match[0] if match else None
 
-        # Check for standard sections related to dimensions and weight
-        key_sections = ["Weight & Dimensions", "Cut-Out Dimensions", "Dimensions (W x H x D)", "Weight"]
+        def extract_dimensions_from_string(value):
+            """Extracts width, height, and depth from a formatted dimension string (e.g., '22.9" D x 32.0" H x 23.7" W')."""
+            match = re.findall(r"([\d.]+)[\"']?\s*[D|d]?\s*[xX]\s*([\d.]+)[\"']?\s*[H|h]?\s*[xX]\s*([\d.]+)[\"']?\s*[W|w]?", value)
+            if match:
+                return match[0]  
+            else:
+                match = extract_dimensions_from_string_fraction(value)
+                return match
+            return None
+        
+        def extract_dimensions_from_string_fraction(value):
+            """Extracts width, height, and depth from a formatted dimension string (e.g., '30" W x 5 1/10" H x 21 1/4" D')."""
+            
+            def convert_to_decimal(fraction_str):
+                """Converts a fraction string (e.g., '1/10') to a decimal number."""
+                try:
+                    return float(Fraction(fraction_str))
+                except ValueError:
+                    return None
+            
+            # Pattern to match dimensions like '30" W x 5 1/10" H x 21 1/4" D'
+            match = re.findall(r"([\d\s/]+)[\"']?\s*[W|w]?\s*[xX]\s*([\d\s/]+)[\"']?\s*[H|h]?\s*[xX]\s*([\d\s/]+)[\"']?\s*[D|d]?", value)
+            
+            if match:
+                width = match[0][0]
+                height = match[0][1]
+                depth = match[0][2]
 
-        for section in key_sections:
-            if section in data:
-                for key, value in data[section].items():
-                    if isinstance(value, str):
-                        if "width" in key.lower():
-                            dimensions["width"] = extract_number(value)
-                        if "height" in key.lower():
-                            dimensions["height"] = extract_number(value)
-                        if "depth" in key.lower():
-                            dimensions["depth"] = extract_number(value)
-                        if "weight" in key.lower():
-                            dimensions["weight"] = extract_number(value)
+                # Convert fraction dimensions to decimal
+                width_decimal = convert_to_decimal(width.replace(" ", "").replace('"', ''))
+                height_decimal = convert_to_decimal(height.replace(" ", "").replace('"', ''))
+                depth_decimal = convert_to_decimal(depth.replace(" ", "").replace('"', ''))
 
-        # General scan across all sections
+                return (width_decimal, height_decimal, depth_decimal)
+            
+            return None
+        
+        dimension_keys = [
+            "Set Dimension without Stand (WxHxD)",
+            "Set Without Stand",
+            "Product Size (W x H x D) Without Stand?Width, height and depth of the television, without stand, as measured in inches (in.).",
+            "Dimensions (WxHxD)",
+            "Set Dimension (WxHxD)",
+            "Box Dimension (inches, WxHxD)",
+            "Product Size (W x H x D) Without Stand",
+            "Dimension (WxHxD)",
+            "Product Dimensions without Hinges or Handles",
+            "Product Dimensions",
+            "Product Dimensions Without Stand",
+            "Main Unit Size (Inch)"
+        ]
+        weight_keys = [
+            "Weight",
+            "Set Weight without Stand",
+            "Set Without Stand",
+            "Product Weight Without Stand?Weight of the television, without stand, as measured in pounds (lb.).",
+            "Weight (lbs)",
+            "Product Weight",
+            "Package Weight",
+            "Product Weight Without Stand",
+            "Product Weight (lbs.)"
+        ]
+        shipping_weight_keys = [
+            "Shipping Weight?Weight of the television, with shipping container, as measured in pounds (lbs.).",
+            "Shipping Weight (lbs.)",
+            "Shipping Weight"
+        ]
+
         for section, attributes in data.items():
             if isinstance(attributes, dict):
                 for key, value in attributes.items():
                     if isinstance(value, str):
-                        # Identify width, height, depth, and weight
-                        if "width" in key.lower():
-                            dimensions["width"] = extract_number(value)
-                        if "height" in key.lower():
-                            dimensions["height"] = extract_number(value)
-                        if "depth" in key.lower():
-                            dimensions["depth"] = extract_number(value)
-                        if "weight" in key.lower():
-                            dimensions["weight"] = extract_number(value)
-
-                        # Handle combined dimension formats: "21.3 x 16.9 x 6.9 Inches"
-                        match = re.findall(r"([\d.]+)\s*[xX]\s*([\d.]+)\s*[xX]\s*([\d.]+)", value)
-                        if match:
-                            dimensions["width"], dimensions["height"], dimensions["depth"] = match[0]
+                        if any(dim_key.lower() == key.lower() for dim_key in dimension_keys):
+                            print("++++++++++++++++")
+                            print(value)
+                            dim_match = extract_dimensions_from_string(value)
+                            print("@@@@@@@@@@@@@@@@@@@@@@@@@@")
+                            print(dim_match)
+                            if dim_match:
+                                dimensions["width"], dimensions["height"], dimensions["depth"] = dim_match
+                        if any(weight_key.lower() == key.lower() for weight_key in weight_keys):
+                                dimensions["weight"] = extract_number(value)
+                        if any(shipping_key.lower() == key.lower() for shipping_key in shipping_weight_keys):
+                            dimensions["shipping_weight"] = extract_number(value)
 
         return dimensions
     
+
+    def check_certification(self, data):
+        # Convert all the values in the dictionary to lowercase
+        def recursive_lower(d):
+            if isinstance(d, dict):
+                return {k: recursive_lower(v) for k, v in d.items()}
+            elif isinstance(d, str):
+                return d.lower()
+            return d
+        
+        data_lower = recursive_lower(data)
+        
+        def contains_certification(d):
+            if isinstance(d, dict):
+                for value in d.values():
+                    if contains_certification(value):
+                        return True
+            elif isinstance(d, str):
+                if 'certification' in d or 'certifications' in d:
+                    return True
+            return False
+        
+        # Return 'Y' if 'certification' or 'certifications' is found, otherwise 'N'
+        if contains_certification(data_lower):
+            return "Y"
+        else:
+            return "N"
+      
     async def scrape_product_details(self, url: str):
         """Extract product details from the given URL."""
         print(f"[cyan]Scraping data from:[/cyan] {url}")
@@ -102,15 +181,15 @@ class SamsungScraper:
         await expect(expand_btn).to_be_visible(timeout=15000)
         await expand_btn.click(force=True)
         await new_page.wait_for_timeout(1000)
-
-
-
         data = {
             "url": url,
             "image": "",
             "price" : "",
             "description": "",
-            "specifications": {}
+            "specifications": {},
+            "dimensions" : "",
+            "green_certification" : "",
+            "spec_pdf" : ""
         }
 
         specifications = {}
@@ -149,7 +228,6 @@ class SamsungScraper:
                         print("Category name missing for section:", section)
             else:
                 spec_groups_ul = soup.find("ul", class_ = "Specs_specRow__e9Ife Specs_specDetailList__StjuR")
-                # spec_groups_ul = soup.find("ul", class_="Specs_specRow__e9Ife Specs_specDetailList__StjuR")
                 if spec_groups_ul:
                     spec_li = spec_groups_ul.find_all("li")
 
@@ -180,21 +258,16 @@ class SamsungScraper:
                 else:
                     print("Specification groups not found.")
 
-                
-        
             data["specifications"] = specifications
             print(specifications)
         except Exception as e:
             print(f"Error extracting image: {e}")
             
-
         # Extract Product Image (jpg)
         try:
             
             image_locators =soup.find_all("img")
             if image_locators:
-                # data["image"] = await image_locator.get("href")
-                # print("Product Image : ", image_locator.get("href"))
                 for item in image_locators:
                     src = item.get("src")
                     if src and src.startswith("https://image-us.samsung.com") and ".png" not in src:
@@ -216,7 +289,7 @@ class SamsungScraper:
                 description_locator = soup.find("div", class_ = "ProductSummary_detailList__zDn4_" )
                 if description_locator:
                     data["description"] = description_locator.get_text().replace("\n", "").replace("\t", "")
-            print(data["description"])
+            # print(data["description"])
         except Exception as e:
             print(f"Error extracting description: {e}")
 
@@ -224,28 +297,10 @@ class SamsungScraper:
         try:
 
             dimensions = self.extract_dimensions(data["specifications"])
+            data["dimensions"] = dimensions
             print("********************************************************************")
             print(dimensions)
             print("------------------------------------------------------")
-
-            # pass
-            # Locate each row in the dimensions table
-            # dimension_rows = await new_page.locator('//div[@id="collapsemanualOne"]//table//tr').all()
-            # for row in dimension_rows:
-            #     cells = await row.locator('td').all_text_contents()
-            #     if len(cells) >= 2:
-            #         label = cells[0].strip()
-            #         value = cells[1].strip()
-            #         if "Overall Width" in label:
-            #             data["dimensions"]["width"] = value.split('"')[0]
-            #         if "Overall Height" in label:
-            #             data["dimensions"]["height"] = value.split('"')[0]
-            #         if "Weight Capacity" in label:
-            #             data["dimensions"]["weight"] = value.split('lbs')[0]
-            #         if "Overall Depth" in label:
-            #             data["dimensions"]["depth"] = value.split('"')[0]                     
-            #         data["dimensions"][label] = value
-
         except Exception as e:
             print(f"Error extracting dimensions: {e}")
 
@@ -257,7 +312,7 @@ class SamsungScraper:
                 if price_tag:
                     price = price_tag.text.strip()
                     data["price"] = price
-                    print(price)
+                    # print(price)
                 else:
                     print("Price not found inside <b> tag.")
             else:
@@ -265,12 +320,11 @@ class SamsungScraper:
                 if price_span:
                     price = price_span.get_text(strip=True)
                     data["price"] = price
-                    print(price)
+                    # print(price)
                 else:
                     print("Price div not found.")
         except Exception as e:
             print(f"Error extracting price: {e}")
-
 
         #Extract Specification pdf download link
         try:
@@ -278,12 +332,17 @@ class SamsungScraper:
             if spec_pdf_div:
                 spec_pdf = spec_pdf_div.find("a").get("href")
                 data["spec_pdf"] = spec_pdf
-                print(spec_pdf)
-            else:
-                print("Specification pdf download not found")
+                # print(spec_pdf)
+
         except Exception as e:
             print(f"Error extracting spec_pdf: {e}")
 
+        #Extract green certification
+        try:
+            data["green_certification"]  = self.check_certification(specifications)
+                
+        except Exception as e:
+            print(f"Error extracting certification: {e}")
         await new_page.close()
         return data
 
@@ -299,52 +358,50 @@ class SamsungScraper:
             url = await self.search_product(str(mfr_number).replace("/", "%2F"))
 
             if not url:
-                
                 url = await self.search_product(str(model_name).replace(" ", "%20"))
-                # if url:
-                    # print(f"{mfr_number} | {model_name}")
             if not url:
                 self.missing += 1
             else:
                 self.found += 1
-            # print(url)
-
-            # print(url)
-        # print(I)
 
             if url:
                 product_data = await self.scrape_product_details(url)
-        #         if product_data:
-        #             print(f"[green]{model_name} | {mfr_number} [/green] - Data extracted successfully.")
-        #             self.df.at[index, "Product URL"] = product_data.get("url", "")
-        #             self.df.at[index, "Product Image (jpg)"] = product_data.get("image", "")
-        #             self.df.at[index, "Product Image"] = product_data.get("image", "")
-        #             self.df.at[index, "product description"] = product_data.get("description", "")
-        #             self.df.at[index, "depth"] = product_data["dimensions"].get("depth", "")
-        #             self.df.at[index, "height"] = product_data["dimensions"].get("height", "")
-        #             self.df.at[index, "width"] = product_data["dimensions"].get("width", "")
-        #             self.df.at[index, "weight"] = product_data["dimensions"].get("weight", "")
-        #             self.df.at[index, "green certification? (Y/N)"] = "N"
-        #             self.df.at[index, "emergency_power Required (Y/N)"] = "N"
-        #             self.df.at[index, "dedicated_circuit Required (Y/N)"] = "N"
-        #             self.df.at[index, "water_cold Required (Y/N)"] = "N"
-        #             self.df.at[index, "water_hot  Required (Y/N)"] = "N"
-        #             self.df.at[index, "drain Required (Y/N)"] = "N"
-        #             self.df.at[index, "water_treated (Y/N)"] = "N"
-        #             self.df.at[index, "steam  Required(Y/N)"] = "N"
-        #             self.df.at[index, "vent  Required (Y/N)"] = "N"
-        #             self.df.at[index, "vacuum Required (Y/N)"] = "N"
-        #             self.df.at[index, "ada compliant (Y/N)"] = "N"
-        #             self.df.at[index, "antimicrobial coating (Y/N)"] = "N"
-        #     else:
-        #         print(f"[red]{model_name} | {mfr_number} [/red] - Not found")
-        # print(f"[red]Missing : {self.missing} [/red]")
-        # print(f"[green]Found : {self.found} [/green]")
-        # self.df.to_excel(self.output_filename, index=False, sheet_name="Grainger")
-        # await self.close_browser()
+                if product_data:
+                    print(f"[green]{model_name} | {mfr_number} [/green] - Data extracted successfully.")
+                    self.df.at[index, "Product URL"] = product_data.get("url", "")
+                    self.df.at[index, "Product Image (jpg)"] = product_data.get("image", "")
+                    self.df.at[index, "Product Image"] = product_data.get("image", "")
+                    self.df.at[index, "product description"] = product_data.get("description", "")
+                    self.df.at[index, "Specification Sheet (pdf)"] = product_data.get("spec_pdf", "")
+                    self.df.at[index, "unit cost"] = product_data.get("price", "")
+                    self.df.at[index, "depth"] = product_data["dimensions"].get("depth", "")
+                    self.df.at[index, "height"] = product_data["dimensions"].get("height", "")
+                    self.df.at[index, "width"] = product_data["dimensions"].get("width", "")
+                    self.df.at[index, "weight"] = product_data["dimensions"].get("weight", "")
+                    self.df.at[index, "ship_weight"] = product_data["dimensions"].get("shipping_weight", "")
+                    self.df.at[index, "green certification? (Y/N)"] = product_data.get("green_certification", "")
+                    self.df.at[index, "emergency_power Required (Y/N)"] = "N"
+                    self.df.at[index, "dedicated_circuit Required (Y/N)"] = "N"
+                    self.df.at[index, "water_cold Required (Y/N)"] = "N"
+                    self.df.at[index, "water_hot  Required (Y/N)"] = "N"
+                    self.df.at[index, "drain Required (Y/N)"] = "N"
+                    self.df.at[index, "water_treated (Y/N)"] = "N"
+                    self.df.at[index, "steam  Required(Y/N)"] = "N"
+                    self.df.at[index, "vent  Required (Y/N)"] = "N"
+                    self.df.at[index, "vacuum Required (Y/N)"] = "N"
+                    self.df.at[index, "ada compliant (Y/N)"] = "N"
+                    self.df.at[index, "antimicrobial coating (Y/N)"] = "N"
+            else:
+                print(f"[red]{model_name} | {mfr_number} [/red] - Not found")
+        print(f"[red]Missing : {self.missing} [/red]")
+        print(f"[green]Found : {self.found} [/green]")
+        self.df.to_excel(self.output_filename, index=False, sheet_name="Grainger")
+        await self.close_browser()
 
 
 if __name__ == "__main__":
+    output_dir = 'output'
+    os.makedirs(output_dir, exist_ok=True)
     scraper = SamsungScraper(
         excel_path="Samsung Content.xlsx",
         output_filename="output/Samsung-output.xlsx",
