@@ -35,7 +35,7 @@ class SamsungScraper:
         url_to_navigate = self.baseurl + str(search_term).replace(('"'), "in").replace(',', "").replace("(", "").replace(")", "").replace(" ", "%20")
         # print(url_to_navigate)
         try:
-            await self.page.goto(url_to_navigate)
+            await self.page.goto(url_to_navigate, timeout = 0)
             await expect(self.page.locator('div.TabHeader-module__tabHeader___3VfJw')).to_be_visible(timeout=15000)
             # Get the first product URL
             search_result = await self.page.locator('//a[@class="ProductCard__learnmore___2ICzV"]').all()
@@ -175,7 +175,7 @@ class SamsungScraper:
         """Extract product details from the given URL."""
         print(f"[cyan]Scraping data from:[/cyan] {url}")
         new_page = await self.context.new_page()
-        await new_page.goto(url)
+        await new_page.goto(url, timeout = 0)
         expand_btn = new_page.locator('//a[(normalize-space(text())="See All Specs") or (@aria-label="See All Specs")]').first
         await expand_btn.wait_for(state="visible", timeout=15000)  # Wait until visible
         await expect(expand_btn).to_be_visible(timeout=15000)
