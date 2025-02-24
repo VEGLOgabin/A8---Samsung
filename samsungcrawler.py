@@ -350,7 +350,7 @@ class SamsungScraper:
     async def run(self):
         """Main function to scrape product details and save them to an Excel file."""
         await self.launch_browser()
-        await self.page.goto(self.baseurl)
+        await self.page.goto(self.baseurl, timeout = 0)
     
         for index, row in self.df.iterrows():
             mfr_number = row["mfr number"]
