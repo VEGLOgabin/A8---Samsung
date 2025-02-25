@@ -317,9 +317,10 @@ class SamsungScraper:
 
             dimensions, voltz_hertz_amps_watts = self.extract_dimensions(data["specifications"])
             data["dimensions"] = dimensions
+            data['volts'] , data["hertz"], data["amps"], data["watts"] = voltz_hertz_amps_watts
             print(voltz_hertz_amps_watts)
             # print("********************************************************************")
-            print(dimensions)
+            # print(dimensions)
             # print("------------------------------------------------------")
         except Exception as e:
             print(f"Error extracting dimensions: {e}")
@@ -400,6 +401,11 @@ class SamsungScraper:
                     self.df.at[index, "weight"] = product_data["dimensions"].get("weight", "")
                     self.df.at[index, "ship_weight"] = product_data["dimensions"].get("shipping_weight", "")
                     self.df.at[index, "green certification? (Y/N)"] = product_data.get("green_certification", "")
+                    # data['volts'] , data["hertz"], data["amps"], data["watts"]
+                    self.df.at[index, "volts"] = product_data.get("volts", "")
+                    self.df.at[index, "hertz"] = product_data.get("hertz", "")
+                    self.df.at[index, "amps"] = product_data.get("amps", "")
+                    self.df.at[index, "watts"] = product_data.get("watts", "")
                     self.df.at[index, "emergency_power Required (Y/N)"] = "N"
                     self.df.at[index, "dedicated_circuit Required (Y/N)"] = "N"
                     self.df.at[index, "water_cold Required (Y/N)"] = "N"
