@@ -123,17 +123,21 @@ class SamsungScraper:
             "Shipping Weight (lbs.)",
             "Shipping Weight"
         ]
+        voltz = ""
+        hertz = ""
+        amps = ""
+        watts = ""
 
         for section, attributes in data.items():
             if isinstance(attributes, dict):
                 for key, value in attributes.items():
                     if isinstance(value, str):
                         if any(dim_key.lower() == key.lower() for dim_key in dimension_keys):
-                            print("++++++++++++++++")
-                            print(value)
+                            # print("++++++++++++++++")
+                            # print(value)
                             dim_match = extract_dimensions_from_string(value)
-                            print("@@@@@@@@@@@@@@@@@@@@@@@@@@")
-                            print(dim_match)
+                            # print("@@@@@@@@@@@@@@@@@@@@@@@@@@")
+                            # print(dim_match)
                             if dim_match:
                                 dimensions["width"], dimensions["height"], dimensions["depth"] = dim_match
                         if any(weight_key.lower() == key.lower() for weight_key in weight_keys):
@@ -141,7 +145,18 @@ class SamsungScraper:
                         if any(shipping_key.lower() == key.lower() for shipping_key in shipping_weight_keys):
                             dimensions["shipping_weight"] = extract_number(value)
 
-        return dimensions
+                    if "Voltz/Hertz/Amps" in key:
+                        voltz, hertz, amps = map(str.strip, value.split("/"))
+                    elif "Watts" in key:
+                        watts = value.strip()
+                    elif "Voltz" in key and all(x not in key for x in ["Hertz", "Amps"]):
+                        voltz = value.strip()
+                    elif "Hertz" in key and all(x not in key for x in ["Voltz", "Amps"]):
+                        hertz = value.strip()
+                    elif "Amps" in key and all(x not in key for x in ["Voltz", "Hertz"]):
+                        amps = value.strip()
+
+        return dimensions, [voltz, hertz, amps, watts]
     
 
     def check_certification(self, data):
@@ -295,12 +310,17 @@ class SamsungScraper:
 
         # Extract Measurements and Dimensions
         try:
+            
+            
+            
+            
 
-            dimensions = self.extract_dimensions(data["specifications"])
+            dimensions, voltz_hertz_amps_watts = self.extract_dimensions(data["specifications"])
             data["dimensions"] = dimensions
-            print("********************************************************************")
+            print(voltz_hertz_amps_watts)
+            # print("********************************************************************")
             print(dimensions)
-            print("------------------------------------------------------")
+            # print("------------------------------------------------------")
         except Exception as e:
             print(f"Error extracting dimensions: {e}")
 
