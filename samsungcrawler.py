@@ -401,7 +401,6 @@ class SamsungScraper:
                     self.df.at[index, "weight"] = product_data["dimensions"].get("weight", "")
                     self.df.at[index, "ship_weight"] = product_data["dimensions"].get("shipping_weight", "")
                     self.df.at[index, "green certification? (Y/N)"] = product_data.get("green_certification", "")
-                    # data['volts'] , data["hertz"], data["amps"], data["watts"]
                     self.df.at[index, "volts"] = product_data.get("volts", "")
                     self.df.at[index, "hertz"] = product_data.get("hertz", "")
                     self.df.at[index, "amps"] = product_data.get("amps", "")
