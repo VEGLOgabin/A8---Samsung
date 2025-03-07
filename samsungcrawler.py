@@ -441,7 +441,6 @@ class SamsungScraper:
         self.df.to_excel(self.output_filename, index=False, sheet_name="Grainger")
         await self.close_browser()
 
-
 if __name__ == "__main__":
     output_dir = 'output'
     os.makedirs(output_dir, exist_ok=True)
