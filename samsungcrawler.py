@@ -395,7 +395,6 @@ class SamsungScraper:
             self.mfr_number = str(mfr_number)
             model_name = row['model name']
             url = await self.search_product(str(mfr_number))
-
             if not url:
                 url = await self.search_product(str(model_name))
             if not url:
