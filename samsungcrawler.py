@@ -46,33 +46,18 @@ class SamsungScraper:
             if search_results:
                 if len(search_results)==9:
                     while True:
-                        # Locate the "View more" button using the correct selector
-                        # print("rrrrrrrrrrrrrrrrrrrrr")
                         await self.page.wait_for_timeout(30000)
                         view_more_button = self.page.locator('div[data-link_id="view more"]').first
-
-                        # Check if the button is visible
                         if await view_more_button.is_visible():
                             print("Found 'View more' button. Clicking...")
                             await view_more_button.click()
-
-                            # # Wait for new results to load
-                            # await self.page.wait_for_selector("div.ProductCard__container___3tGUh", state="attached", timeout=30000)
-                            # print("New results loaded.")
-
-                            # Update the search results count
-                            # search_results = await self.page.locator("div.ProductCard__container___3tGUh").all()
-                            # print(f"Total products after click: {len(search_results)}")
-
-                            # Break the loop if no more "View more" button is found
                             if not await view_more_button.is_visible(timeout=10000):
                                 print("No more 'View more' button found. Exiting loop.")
                                 break
                         else:
                             print("'View more' button not visible. Exiting loop.")
                             break
-                
-            
+                search_results = await self.page.locator("div.ProductCard__container___3tGUh").all()
                 print(f"Found {len(search_results)} products")
 
                 for product in search_results:
@@ -177,11 +162,7 @@ class SamsungScraper:
                 for key, value in attributes.items():
                     if isinstance(value, str):
                         if any(dim_key.lower() == key.lower() for dim_key in dimension_keys):
-                            # print("++++++++++++++++")
-                            # print(value)
                             dim_match = extract_dimensions_from_string(value)
-                            # print("@@@@@@@@@@@@@@@@@@@@@@@@@@")
-                            # print(dim_match)
                             if dim_match:
                                 dimensions["width"], dimensions["height"], dimensions["depth"] = dim_match
                         if any(weight_key.lower() == key.lower() for weight_key in weight_keys):
@@ -354,18 +335,10 @@ class SamsungScraper:
 
         # Extract Measurements and Dimensions
         try:
-            
-            
-            
-            
-
             dimensions, voltz_hertz_amps_watts = self.extract_dimensions(data["specifications"])
             data["dimensions"] = dimensions
             data['volts'] , data["hertz"], data["amps"], data["watts"] = voltz_hertz_amps_watts
             print(voltz_hertz_amps_watts)
-            # print("********************************************************************")
-            # print(dimensions)
-            # print("------------------------------------------------------")
         except Exception as e:
             print(f"Error extracting dimensions: {e}")
 
