@@ -45,11 +45,13 @@ class SamsungScraper:
             search_results = await self.page.locator("div.ProductCard__container___3tGUh").all()
             if search_results:
                 if len(search_results)==9:
+                    iter = 0
                     while True:
                         await self.page.wait_for_timeout(30000)
                         view_more_button = self.page.locator('div[data-link_id="view more"]').first
-                        if await view_more_button.is_visible():
+                        if await view_more_button.is_visible() and iter<=12:
                             print("Found 'View more' button. Clicking...")
+                            iter +=1
                             await view_more_button.click()
                             if not await view_more_button.is_visible(timeout=10000):
                                 print("No more 'View more' button found. Exiting loop.")
@@ -397,11 +399,11 @@ class SamsungScraper:
             url = await self.search_product(str(mfr_number))
             if not url:
                 url = await self.search_product(str(model_name))
-            if not url:
+            if not url or url == "https://www.samsung.com":
                 self.missing += 1
             else:
                 self.found += 1
-            if url:
+            if url and url!="https://www.samsung.com":
                 product_data = await self.scrape_product_details(url)
                 if product_data:
                     print(f"[green]{model_name} | {mfr_number} [/green] - Data extracted successfully.")
