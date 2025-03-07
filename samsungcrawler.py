@@ -37,7 +37,7 @@ class SamsungScraper:
         """Search for a product by search term  and return its first result URL."""
         # Properly encode the search term for use in a URL
         formatted_search_term = quote_plus(search_term)
-        print((search_term, formatted_search_term))
+        # print((search_term, formatted_search_term))
         url_to_navigate = self.baseurl + formatted_search_term
         try:
             await self.page.goto(url_to_navigate, timeout=0)
@@ -62,13 +62,21 @@ class SamsungScraper:
                 search_results = await self.page.locator("div.ProductCard__container___3tGUh").all()
                 print(f"Found {len(search_results)} products")
 
+            
                 for product in search_results:
+                    
                     mdl_code = await product.get_attribute("data-mdlcode")
-                    if mdl_code.lower() in self.mfr_number.lower():
+                    if len(search_results)==1:
                         first_a_tag = product.locator("a").first
                         url = "https://www.samsung.com" + await first_a_tag.get_attribute("href")
 
-                        print(f"Model Code: {mdl_code}, Link: {url}")
+                        # print(f"Model Code: {mdl_code}, Link: {url}")
+                        return url
+                    elif mdl_code.lower() in self.mfr_number.lower():
+                        first_a_tag = product.locator("a").first
+                        url = "https://www.samsung.com" + await first_a_tag.get_attribute("href")
+
+                        # print(f"Model Code: {mdl_code}, Link: {url}")
                         return url
                     else:
                         pass
