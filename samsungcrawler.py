@@ -322,7 +322,7 @@ class SamsungScraper:
                     src = item.get("src")
                     if src and src.startswith("https://image-us.samsung.com") and ".png" not in src:
                         data["image"] = src.replace("$", "")
-                        print(src.replace("$", ""))
+                        # print(src.replace("$", ""))
                         break
             else:
                 print("Product Image Not  found ")
@@ -348,7 +348,7 @@ class SamsungScraper:
             dimensions, voltz_hertz_amps_watts = self.extract_dimensions(data["specifications"])
             data["dimensions"] = dimensions
             data['volts'] , data["hertz"], data["amps"], data["watts"] = voltz_hertz_amps_watts
-            print(voltz_hertz_amps_watts)
+            # print(voltz_hertz_amps_watts)
         except Exception as e:
             print(f"Error extracting dimensions: {e}")
 
