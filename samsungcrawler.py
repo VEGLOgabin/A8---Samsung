@@ -299,7 +299,7 @@ class SamsungScraper:
                     print("Specification groups not found.")
 
             data["specifications"] = specifications
-            print(specifications)
+            # print(specifications)
         except Exception as e:
             print(f"Error extracting image: {e}")
             
@@ -402,7 +402,6 @@ class SamsungScraper:
                 self.missing += 1
             else:
                 self.found += 1
-            
             if url:
                 product_data = await self.scrape_product_details(url)
                 if product_data:
