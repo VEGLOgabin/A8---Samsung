@@ -19,6 +19,7 @@ class SamsungScraper:
         self.found = found
         self.missing = missing
         self.df = pd.read_excel(self.filepath, sheet_name="Grainger")
+        self.mfr_number = ""
 
     async def launch_browser(self):
         """Initialize Playwright and open the browser."""
@@ -43,55 +44,49 @@ class SamsungScraper:
             await expect(self.page.locator('div.TabHeader-module__tabHeader___3VfJw')).to_be_visible(timeout=5000)
             search_results = await self.page.locator("div.ProductCard__container___3tGUh").all()
             if search_results:
-                # print(f"Found {len(search_results)} products")
-
-                # for product in search_results:
-                #     mdl_code = await product.get_attribute("data-mdlcode")
-                #     first_a_tag = product.locator("a").first
-                #     url = "https://www.samsung.com" + await first_a_tag.get_attribute("href")
-
-                #     print(f"Model Code: {mdl_code}, Link: {url}")
                 if len(search_results)==9:
-                    # await self.page.pause()
                     while True:
-                        # Check if the "View more" button is available
-                        # view_more_button = await self.page.locator("div.GridController__button___1_MME").first
-                        # is_visible = await view_more_button.is_visible()
-                        print("LOLOLOO")
+                        # Locate the "View more" button using the correct selector
+                        # print("rrrrrrrrrrrrrrrrrrrrr")
+                        await self.page.wait_for_timeout(30000)
+                        view_more_button = self.page.locator('div[data-link_id="view more"]').first
 
-                        # Locate the <div> element with the attribute data-link_id="view more"
-                        view_more_button = await self.page.locator('div[data-link_id="view more"]').first
-                        
-                        # Check if the button is visible and click it
+                        # Check if the button is visible
                         if await view_more_button.is_visible():
+                            print("Found 'View more' button. Clicking...")
                             await view_more_button.click()
-                            print("Clicked 'View more' button")
-                            break  # Exit loop after clicking
-                        print("LALALALAL")
-                        await self.page.pause()
-                        # Check if the button is visible and click it if found
 
-                        # if is_visible:
-                        #     # Click the "View more" button
-                        #     await view_more_button.click()
-                        #     print("Clicked 'View more' button")
+                            # # Wait for new results to load
+                            # await self.page.wait_for_selector("div.ProductCard__container___3tGUh", state="attached", timeout=30000)
+                            # print("New results loaded.")
 
-                        #     # Wait for the new results to load
-                        #     await self.page.wait_for_selector("div.ProductCard__container___3tGUh", timeout=5000)
+                            # Update the search results count
+                            # search_results = await self.page.locator("div.ProductCard__container___3tGUh").all()
+                            # print(f"Total products after click: {len(search_results)}")
 
-                        #     # Collect the updated search results
-                        #     search_results = await self.page.locator("div.ProductCard__container___3tGUh").all()
-
-                            # if len(search_results) >= 50:  # Stop after 50 results, or adjust as needed
-                            #     print(f"Reached {len(search_results)} products.")
-                            #     break
-
+                            # Break the loop if no more "View more" button is found
+                            if not await view_more_button.is_visible(timeout=10000):
+                                print("No more 'View more' button found. Exiting loop.")
+                                break
+                        else:
+                            print("'View more' button not visible. Exiting loop.")
+                            break
                 
-                if len(search_results)==9:
-                    # await self.page.pause()
-                    pass
+            
+                print(f"Found {len(search_results)} products")
 
-                return "https:/"
+                for product in search_results:
+                    mdl_code = await product.get_attribute("data-mdlcode")
+                    if mdl_code.lower() in self.mfr_number.lower():
+                        first_a_tag = product.locator("a").first
+                        url = "https://www.samsung.com" + await first_a_tag.get_attribute("href")
+
+                        print(f"Model Code: {mdl_code}, Link: {url}")
+                        return url
+                    else:
+                        pass
+                return None
+                
         except Exception as e:
             # print(f"Error occurred: {e}")
             pass
@@ -424,6 +419,7 @@ class SamsungScraper:
     
         for index, row in self.df.iterrows():
             mfr_number = row["mfr number"]
+            self.mfr_number = str(mfr_number)
             model_name = row['model name']
             url = await self.search_product(str(mfr_number))
 
@@ -434,43 +430,43 @@ class SamsungScraper:
             else:
                 self.found += 1
             
-        #     if url:
-        #         product_data = await self.scrape_product_details(url)
-        #         if product_data:
-        #             print(f"[green]{model_name} | {mfr_number} [/green] - Data extracted successfully.")
-        #             self.df.at[index, "Product URL"] = product_data.get("url", "")
-        #             self.df.at[index, "Product Image (jpg)"] = product_data.get("image", "")
-        #             self.df.at[index, "Product Image"] = product_data.get("image", "")
-        #             self.df.at[index, "product description"] = product_data.get("description", "")
-        #             self.df.at[index, "Specification Sheet (pdf)"] = product_data.get("spec_pdf", "")
-        #             self.df.at[index, "unit cost"] = product_data.get("price", "")
-        #             self.df.at[index, "depth"] = product_data["dimensions"].get("depth", "")
-        #             self.df.at[index, "height"] = product_data["dimensions"].get("height", "")
-        #             self.df.at[index, "width"] = product_data["dimensions"].get("width", "")
-        #             self.df.at[index, "weight"] = product_data["dimensions"].get("weight", "")
-        #             self.df.at[index, "ship_weight"] = product_data["dimensions"].get("shipping_weight", "")
-        #             self.df.at[index, "green certification? (Y/N)"] = product_data.get("green_certification", "")
-        #             self.df.at[index, "volts"] = product_data.get("volts", "")
-        #             self.df.at[index, "hertz"] = product_data.get("hertz", "")
-        #             self.df.at[index, "amps"] = product_data.get("amps", "")
-        #             self.df.at[index, "watts"] = product_data.get("watts", "")
-        #             self.df.at[index, "emergency_power Required (Y/N)"] = "N"
-        #             self.df.at[index, "dedicated_circuit Required (Y/N)"] = "N"
-        #             self.df.at[index, "water_cold Required (Y/N)"] = "N"
-        #             self.df.at[index, "water_hot  Required (Y/N)"] = "N"
-        #             self.df.at[index, "drain Required (Y/N)"] = "N"
-        #             self.df.at[index, "water_treated (Y/N)"] = "N"
-        #             self.df.at[index, "steam  Required(Y/N)"] = "N"
-        #             self.df.at[index, "vent  Required (Y/N)"] = "N"
-        #             self.df.at[index, "vacuum Required (Y/N)"] = "N"
-        #             self.df.at[index, "ada compliant (Y/N)"] = "N"
-        #             self.df.at[index, "antimicrobial coating (Y/N)"] = "N"
-        #     else:
-        #         print(f"[red]{model_name} | {mfr_number} [/red] - Not found")
+            if url:
+                product_data = await self.scrape_product_details(url)
+                if product_data:
+                    print(f"[green]{model_name} | {mfr_number} [/green] - Data extracted successfully.")
+                    self.df.at[index, "Product URL"] = product_data.get("url", "")
+                    self.df.at[index, "Product Image (jpg)"] = product_data.get("image", "")
+                    self.df.at[index, "Product Image"] = product_data.get("image", "")
+                    self.df.at[index, "product description"] = product_data.get("description", "")
+                    self.df.at[index, "Specification Sheet (pdf)"] = product_data.get("spec_pdf", "")
+                    self.df.at[index, "unit cost"] = product_data.get("price", "")
+                    self.df.at[index, "depth"] = product_data["dimensions"].get("depth", "")
+                    self.df.at[index, "height"] = product_data["dimensions"].get("height", "")
+                    self.df.at[index, "width"] = product_data["dimensions"].get("width", "")
+                    self.df.at[index, "weight"] = product_data["dimensions"].get("weight", "")
+                    self.df.at[index, "ship_weight"] = product_data["dimensions"].get("shipping_weight", "")
+                    self.df.at[index, "green certification? (Y/N)"] = product_data.get("green_certification", "")
+                    self.df.at[index, "volts"] = product_data.get("volts", "")
+                    self.df.at[index, "hertz"] = product_data.get("hertz", "")
+                    self.df.at[index, "amps"] = product_data.get("amps", "")
+                    self.df.at[index, "watts"] = product_data.get("watts", "")
+                    self.df.at[index, "emergency_power Required (Y/N)"] = "N"
+                    self.df.at[index, "dedicated_circuit Required (Y/N)"] = "N"
+                    self.df.at[index, "water_cold Required (Y/N)"] = "N"
+                    self.df.at[index, "water_hot  Required (Y/N)"] = "N"
+                    self.df.at[index, "drain Required (Y/N)"] = "N"
+                    self.df.at[index, "water_treated (Y/N)"] = "N"
+                    self.df.at[index, "steam  Required(Y/N)"] = "N"
+                    self.df.at[index, "vent  Required (Y/N)"] = "N"
+                    self.df.at[index, "vacuum Required (Y/N)"] = "N"
+                    self.df.at[index, "ada compliant (Y/N)"] = "N"
+                    self.df.at[index, "antimicrobial coating (Y/N)"] = "N"
+            else:
+                print(f"[red]{model_name} | {mfr_number} [/red] - Not found")
         print(f"[red]Missing : {self.missing} [/red]")
         print(f"[green]Found : {self.found} [/green]")
-        # self.df.to_excel(self.output_filename, index=False, sheet_name="Grainger")
-        # await self.close_browser()
+        self.df.to_excel(self.output_filename, index=False, sheet_name="Grainger")
+        await self.close_browser()
 
 
 if __name__ == "__main__":
