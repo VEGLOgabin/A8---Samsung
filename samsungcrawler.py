@@ -45,6 +45,7 @@ class SamsungScraper:
             search_results = await self.page.locator("div.ProductCard__container___3tGUh").all()
             if search_results:
                 if len(search_results)==9:
+
                     iter = 0
                     while True:
                         await self.page.wait_for_timeout(30000)
@@ -227,10 +228,18 @@ class SamsungScraper:
         new_page = await self.context.new_page()
         await new_page.goto(url, timeout = 0)
         expand_btn = new_page.locator('//a[(normalize-space(text())="See All Specs") or (@aria-label="See All Specs")]').first
-        await expand_btn.wait_for(state="visible", timeout=15000)  # Wait until visible
-        await expect(expand_btn).to_be_visible(timeout=15000)
-        await expand_btn.click(force=True)
-        await new_page.wait_for_timeout(1000)
+        if await expand_btn.count() > 0:
+            try:
+                await expand_btn.wait_for(state="visible", timeout=15000)
+                await expect(expand_btn).to_be_visible(timeout=15000)
+                await expand_btn.click(force=True)
+                await new_page.wait_for_timeout(1000)
+            except Exception as e:
+                print(f"[yellow]Warning: Expand button not interactable - {e}[/yellow]")
+
+        else:
+            print("[yellow]Expand button not found, skipping...[/yellow]")
+                
         data = {
             "url": url,
             "image": "",
@@ -239,7 +248,12 @@ class SamsungScraper:
             "specifications": {},
             "dimensions" : "",
             "green_certification" : "",
-            "spec_pdf" : ""
+            "spec_pdf" : "",
+            "watts": "",
+            "amps" : "",
+            "hertz" : "",
+            "volts" : "",
+            "shipping_weight" : "",
         }
 
         specifications = {}
@@ -345,9 +359,10 @@ class SamsungScraper:
 
         # Extract Measurements and Dimensions
         try:
-            dimensions, voltz_hertz_amps_watts = self.extract_dimensions(data["specifications"])
-            data["dimensions"] = dimensions
-            data['volts'] , data["hertz"], data["amps"], data["watts"] = voltz_hertz_amps_watts
+            if specifications:
+                dimensions, voltz_hertz_amps_watts = self.extract_dimensions(data["specifications"])
+                data["dimensions"] = dimensions
+                data['volts'] , data["hertz"], data["amps"], data["watts"] = voltz_hertz_amps_watts
             # print(voltz_hertz_amps_watts)
         except Exception as e:
             print(f"Error extracting dimensions: {e}")
@@ -387,7 +402,9 @@ class SamsungScraper:
 
         #Extract green certification
         try:
-            data["green_certification"]  = self.check_certification(specifications)
+            if specifications:
+
+                data["green_certification"]  = self.check_certification(specifications)
                 
         except Exception as e:
             print(f"Error extracting certification: {e}")
@@ -421,11 +438,12 @@ class SamsungScraper:
                     self.df.at[index, "product description"] = product_data.get("description", "")
                     self.df.at[index, "Specification Sheet (pdf)"] = product_data.get("spec_pdf", "")
                     self.df.at[index, "unit cost"] = product_data.get("price", "")
-                    self.df.at[index, "depth"] = product_data["dimensions"].get("depth", "")
-                    self.df.at[index, "height"] = product_data["dimensions"].get("height", "")
-                    self.df.at[index, "width"] = product_data["dimensions"].get("width", "")
-                    self.df.at[index, "weight"] = product_data["dimensions"].get("weight", "")
-                    self.df.at[index, "ship_weight"] = product_data["dimensions"].get("shipping_weight", "")
+                    if product_data["dimensions"]!="":
+                        self.df.at[index, "depth"] = product_data["dimensions"].get("depth", "")
+                        self.df.at[index, "height"] = product_data["dimensions"].get("height", "")
+                        self.df.at[index, "width"] = product_data["dimensions"].get("width", "")
+                        self.df.at[index, "weight"] = product_data["dimensions"].get("weight", "")
+                        self.df.at[index, "ship_weight"] = product_data["dimensions"].get("shipping_weight", "")
                     self.df.at[index, "green certification? (Y/N)"] = product_data.get("green_certification", "")
                     self.df.at[index, "volts"] = product_data.get("volts", "")
                     self.df.at[index, "hertz"] = product_data.get("hertz", "")
